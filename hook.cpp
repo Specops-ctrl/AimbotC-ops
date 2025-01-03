@@ -2,7 +2,7 @@
 
 // Configuration structures
 ESPCfg invisibleCfg, espcfg;
-AimbotCfg pistolCfg, smgCfg, arCFg, shotgunCfg, sniperCfg, assaultCfg;
+AimbotCfg pistolCfg, smgCfg, arCFg, shotgunCfg, sniperCfg;
 
 // Global variables
 void* TouchControls = nullptr;
@@ -100,7 +100,6 @@ void configureWeapon(AimbotCfg &cfg, int currWeapon) {
     }
 }
 
-// Function to get a valid target for the aimbot
 void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
     int id = getLocalId(pSys);
     if (id == 0) return nullptr;
@@ -119,29 +118,33 @@ void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
         bool canSet = false;
         Vector2 newAngle;
         if (cfg.aimbot && localEnemy.Character && get_Health(localEnemy.Character) > 0 && health > 0) {
-            Vector3 enemyBone = predictEnemyPosition(currentEnemy.Character, 0.1f);
-            Vector3 deltavec = enemyBone - localHead;
-            float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
-            newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
-            newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
-            if (isInFov2(rotation, newAngle, cfg) && localTeam != curTeam && curTeam != -1) {
-                if (cfg.visCheck && get_Health(localEnemy.Character) > 0 && isCharacterVisible(currentEnemy.Character, pSys)) {
-                    canSet = true;
-                }
-                void *transform = getTransform(localEnemy.Character);
-                if (transform) {
-                    Vector3 localPosition = get_Position(transform);
-                    Vector3 currentCharacterPosition = get_Position(getTransform(currentEnemy.Character));
-                    Vector3 currentEntDist = Vector3::Distance(localPosition, currentCharacterPosition);
-                    if (Vector3::Magnitude(currentEntDist) < closestEntDist && (!cfg.visCheck || canSet)) {
-                        closestEntDist = Vector3::Magnitude(currentEntDist);
-                        closestCharacter = currentEnemy.Character;
+            for (BodyPart part : cfg.aimBones) {
+                Vector3 enemyBone = predictEnemyPosition(currentEnemy.Character, 0.1f);
+                Vector3 deltavec = enemyBone - localHead;
+                float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
+                newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
+                newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
+                if (isInFov2(rotation, newAngle, cfg) && localTeam != curTeam && curTeam != -1) {
+                    if (cfg.visCheck && get_Health(localEnemy.Character) > 0 && isCharacterVisible(currentEnemy.Character, pSys)) {
+                        canSet = true;
+                    }
+                    void *transform = getTransform(localEnemy.Character);
+                    if (transform) {
+                        Vector3 localPosition = get_Position(transform);
+                        Vector3 currentCharacterPosition = get_Position(getTransform(currentEnemy.Character));
+                        Vector3 currentEntDist = Vector3::Distance(localPosition, currentCharacterPosition);
+                        if (Vector3::Magnitude(currentEntDist) < closestEntDist && (!cfg.visCheck || canSet)) {
+                            closestEntDist = Vector3::Magnitude(currentEntDist);
+                            closestCharacter = currentEnemy.Character;
+                            break; // Stop after the first valid target
+                        }
                     }
                 }
             }
         }
     }
     return closestCharacter;
+}
 }
 
 bool isCharacterVisible(void *character, void *pSys) {
@@ -150,7 +153,22 @@ bool isCharacterVisible(void *character, void *pSys) {
 }
 }
 
-void setRotation(void *character, Vector2 rotation) {
+
+    oSetRotation(character, rotation + difference);
+}
+    if (cfg.triggerbot && closestEnt && localEnemy.Character && get_Health(localEnemy.Character) > 0 && !get_Invulnerable(closestEnt)) {
+        int hitIndex = 0;
+        void *camera = get_camera();
+        if (camera) {
+            Ray ray = ScreenPointToRay(camera, Vector2(glWidth / 2, glHeight / 2), 2);
+            if (closestEnt) {
+                UpdateCharacterHitBuffer(pSys, closestEnt, ray, &hitIndex);
+            }
+            if (hitIndex && !shootControl) {
+                shootControl = 1;
+            }
+        }
+ void setRotation(void *character, Vector2 rotation) {
     std::lock_guard<std::mutex> guard(aimbot_mtx);
     Vector2 newAngle, difference = {0, 0};
     AimbotCfg cfg;
@@ -166,31 +184,20 @@ void setRotation(void *character, Vector2 rotation) {
         if (getIsCrouched(localEnemy.Character)) {
             localHead -= Vector3(0, 0.5, 0);
         }
-        Vector3 enemyBone = getBonePosition(closestEnt, cfg.aimBone);
-        Vector3 deltavec = enemyBone - localHead;
-        float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
-        newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
-        newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
-        if (cfg.aimbot && character == localEnemy.Character) {
-            difference = (cfg.fovCheck ? isInFov2(rotation, newAngle, cfg) : newAngle - rotation) / (cfg.aimbotSmooth ? cfg.smoothAmount : 1);
+        for (BodyPart part : cfg.aimBones) {
+            Vector3 enemyBone = getBonePosition(closestEnt, part);
+            Vector3 deltavec = enemyBone - localHead;
+            float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
+            newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
+            newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
+            if (cfg.aimbot && character == localEnemy.Character) {
+                difference = (cfg.fovCheck ? isInFov2(rotation, newAngle, cfg) : newAngle - rotation) / (cfg.aimbotSmooth ? cfg.smoothAmount : 1);
+                break; // Stop after the first valid target
+            }
         }
     }
-    oSetRotation(character, rotation + difference);
+  oSetRotation(character, rotation + difference);
 }
-    if (cfg.triggerbot && closestEnt && localEnemy.Character && get_Health(localEnemy.Character) > 0 && !get_Invulnerable(closestEnt)) {
-        int hitIndex = 0;
-        void *camera = get_camera();
-        if (camera) {
-            Ray ray = ScreenPointToRay(camera, Vector2(glWidth / 2, glHeight / 2), 2);
-            if (closestEnt) {
-                UpdateCharacterHitBuffer(pSys, closestEnt, ray, &hitIndex);
-            }
-            if (hitIndex && !shootControl) {
-                shootControl = 1;
-            }
-        }
-    }
-    oSetRotation(character, rotation + difference);
 }
 
 // ESP function to draw information on the screen
