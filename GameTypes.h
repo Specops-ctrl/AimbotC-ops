@@ -91,20 +91,19 @@ struct TransformData
 };
 
 
-struct ESPCfg
-{
-    bool snapline = 0;
+struct ESPCfg {
+    bool snapline = true;
     ImVec4 snaplineColor = ImColor(255,255,255);
-    bool bone = STOMACH,CHEST,HEAD;
+    bool bone = true;
     ImVec4 boneColor = ImColor(255,255,255);
-    bool box = ImColor(255,255,255);
+    bool box = true;
     ImVec4 boxColor = ImColor(255,255,255);
-    bool healthesp = 0;
-    bool healthNumber = 0;
-    bool name = 0;
-    bool distance;
+    bool healthesp = true;
+    bool healthNumber = true;
+    bool name = true;
+    bool distance = true;
     ImVec4 nameColor = ImColor(255,255,255);
-    bool weapon = 0;
+    bool weapon = true;
     ImVec4 weaponColor = ImColor(255,255,255);
 };
 struct BurstData
@@ -116,19 +115,19 @@ struct BurstData
     float maxRange;
 };
 
-struct AimbotCfg
-{
+struct AimbotCfg {
     bool aimbot = true;
-    bool visCheck = false;
+    bool visCheck = true;
     BodyPart aimBone = HEAD;
     bool aimbotSmooth = true;
-    float smoothAmount = 3.0f;
-    bool fovCheck = false;
-    float fovValue = 1.0f;
+    float smoothAmount = 1.0f;
+    bool fovCheck = true;
+    float fovValue = 360.0f;
     bool drawFov = true;
     bool onShoot = true;
     bool triggerbot = true;
 };
+
 };
 
 struct CustomWeapon
