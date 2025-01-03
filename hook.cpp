@@ -144,13 +144,12 @@ void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
     return closestCharacter;
 }
 
-// Function to check if a character is visible
 bool isCharacterVisible(void *character, void *pSys) {
     void *localCharacter = get_LocalCharacter(pSys);
     return localCharacter && !isHeadBehindWall(localCharacter, character);
 }
+}
 
-// Function to set the rotation of the aimbot
 void setRotation(void *character, Vector2 rotation) {
     std::lock_guard<std::mutex> guard(aimbot_mtx);
     Vector2 newAngle, difference = {0, 0};
@@ -165,41 +164,19 @@ void setRotation(void *character, Vector2 rotation) {
     if (localEnemy.Character && get_Health(localEnemy.Character) > 0 && closestEnt) {
         Vector3 localHead = getBonePosition(localEnemy.Character, 10);
         if (getIsCrouched(localEnemy.Character)) {
-            localHead = localHead - Vector3(0, 0.5, 0);
+            localHead -= Vector3(0, 0.5, 0);
         }
-        Vector3 enemyBone;
-        if (aimPos == 0) {
-            enemyBone = getBonePosition(closestEnt, HEAD);
-        } else if (aimPos == 1) {
-            enemyBone = getBonePosition(closestEnt, CHEST);
-        } else if (aimPos == 2) {
-            enemyBone = getBonePosition(closestEnt, STOMACH);
-        } else if (aimPos == 3) {
-            enemyBone = getBonePosition(closestEnt, HEAD);
-        }
+        Vector3 enemyBone = getBonePosition(closestEnt, cfg.aimBone);
         Vector3 deltavec = enemyBone - localHead;
         float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
         newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
         newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
         if (cfg.aimbot && character == localEnemy.Character) {
-            if (cfg.onShoot && isCharacterShooting(localEnemy.Character)) {
-                if (cfg.fovCheck) {
-                    difference = isInFov(rotation, newAngle, cfg);
-                } else {
-                    difference = newAngle - rotation;
-                    cfg.fovValue = 360;
-                }
-            } else if (cfg.fovCheck) {
-                difference = isInFov(rotation, newAngle, cfg);
-            } else {
-                difference = newAngle - rotation;
-                cfg.fovValue = 360;
-            }
-            if (cfg.aimbotSmooth) {
-                difference = difference / cfg.smoothAmount;
-            }
+            difference = (cfg.fovCheck ? isInFov2(rotation, newAngle, cfg) : newAngle - rotation) / (cfg.aimbotSmooth ? cfg.smoothAmount : 1);
         }
     }
+    oSetRotation(character, rotation + difference);
+}
     if (cfg.triggerbot && closestEnt && localEnemy.Character && get_Health(localEnemy.Character) > 0 && !get_Invulnerable(closestEnt)) {
         int hitIndex = 0;
         void *camera = get_camera();
@@ -259,14 +236,11 @@ void ESP() {
         if(localPlayer == currentEnemy.Player){
             localEnemy = currentEnemy;
         }
-        int health = std::stoi(OBFUSCATE("0")), localTeam = std::stoi(OBFUSCATE("-1")), curTeam = std::stoi(OBFUSCATE("-1"));
-        if(localEnemy.team != std::stoi(OBFUSCATE("-1")) && currentEnemy.team != std::stoi(OBFUSCATE("-1"))){
-            health = get_Health(currentEnemy.Character);
-            localTeam = localEnemy.team;
-            curTeam = currentEnemy.team;
-        }
+        int health = get_Health(currentEnemy.Character);
+        int localTeam = localEnemy.team;
+        int curTeam = currentEnemy.team;
 
-        if (health <= std::stoi(OBFUSCATE("0")) || localTeam == curTeam || curTeam == std::stoi(OBFUSCATE("-1"))) {
+        if (health <= 0 || localTeam == curTeam || curTeam == -1) {
             continue;
         }
 
@@ -303,7 +277,7 @@ void ESP() {
 
         if (esp) {
             if (espcfg.snapline && transformPos.Z > 0) {
-                DrawLine(ImVec2(glWidth / 2, glHeight), ImVec2(transformPos.X, transformPos.Y), ImColor(espcfg.snaplineColor.x, espcfg.snaplineColor.y, espcfg.snaplineColor.z, (255 - currentEntDist * [...]  // Add the rest of the snapline drawing code
+                DrawLine(ImVec2(glWidth / 2, glHeight), ImVec2(transformPos.X, transformPos.Y), ImColor(espcfg.snaplineColor.x, espcfg.snaplineColor.y, espcfg.snaplineColor.z, (255 - currentEntDist * 2)));
             }
 
             if (espcfg.bone && transformPos.Z > 0 && currentCharacter != nullptr) {
@@ -337,13 +311,11 @@ void ESP() {
             }
 
             if (espcfg.healthesp && transformPos.Z > 0 && wsAboveHead.Z > 0) {
-                DrawOutlinedFilledRect(wsAboveHead.X - width / 2 - 12, wsAboveHead.Y + height * (1 - (static_cast<float>(health) / 100.0f)), 3, height * (static_cast<float>(health) / 100.0f), HealthTo[...]
+                DrawOutlinedFilledRect(wsAboveHead.X - width / 2 - 12, wsAboveHead.Y + height * (1 - (static_cast<float>(health) / 100.0f)), 3, height * (static_cast<float>(health) / 100.0f), HealthToColor(health), background);
             }
 
             if (espcfg.healthNumber && transformPos.Z > 0 && wsAboveHead.Z > 0) {
-                if (health > 100) {
-                    DrawText(ImVec2(wsAboveHead.X - width / 2 - 17, wsAboveHead.Y + height * (1 - static_cast<float>(health) / 100.0f) - 3), ImVec4(1, 1, 1, 255), std::to_string(health), espFont, back[...]
-                }
+                DrawText(ImVec2(wsAboveHead.X - width / 2 - 17, wsAboveHead.Y + height * (1 - static_cast<float>(health) / 100.0f) - 3), ImVec4(1, 1, 1, 255), std::to_string(health), espFont, background);
             }
 
             if (espcfg.distance && transformPos.Z > 0) {
@@ -352,6 +324,10 @@ void ESP() {
 
             if (espcfg.name && transformPos.Z > 0 && currentCharacter != nullptr) {
                 void *player = get_Player(currentCharacter);
-                if (player == nullptr)
-                    continue;
+                if (player == nullptr) continue;
                 std::string username = get_PlayerUsername(player);
+                DrawText(ImVec2(transformPos.X - width / 2, transformPos.Y - 12), espcfg.nameColor, username, espFont, background);
+            }
+        }
+    }
+}
