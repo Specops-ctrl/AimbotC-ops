@@ -1,0 +1,1 @@
+remake of some Aimbot and Esp for Critical Ops (we try our best if you find issue report ill try to fix) ALso the aimbot should work really good againts decent ranks for Ex:( newbies, iron bronze silver gold plat and diamond (sometimes diamond because its still a work on the job) Im a on person but would like somone to help for free?? possibly... for now enjoy!!
