@@ -1,3 +1,14 @@
+#include <jni.h>
+#include <android/log.h>
+#include <thread>
+#include <chrono>
+#include <string>
+#include <vector>
+
+// Include necessary Android headers
+#include <android/asset_manager.h>
+#include <android/asset_manager_jni.h>
+
 #include "GameTypes.h"
 
 // Configuration structures
@@ -13,6 +24,7 @@ bool shootControl = false;
 Enemy localEnemy;
 std::vector<Enemy> EnemyList;
 int glWidth, glHeight;
+bool isCriticalOpsRunning = false;
 
 // Function declarations
 void configureWeapon(AimbotCfg &cfg, int currWeapon);
@@ -21,12 +33,84 @@ void *getValidEnt3(AimbotCfg cfg, Vector2 rotation);
 bool isCharacterVisible(void *character, void *pSys);
 void setRotation(void *character, Vector2 rotation);
 void ESP();
+void checkForCriticalOps(JNIEnv* env);
 
 // Function to get the transform of a character
 void *getTransform(void *character) {
     if (!character) return nullptr;
     return *(void **) ((uint64_t) character + string2Offset(OBFUSCATE("0x70")));
 }
+
+// Initialization function for touch controls
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_criticalforceentertainment_criticalops_CriticalOpsMainActivity_initTouchControls(JNIEnv* env, jobject obj) {
+    // Initialize TouchControls here
+    TouchControls = new YourTouchControlClass(); // Example initialization
+    std::thread(checkForCriticalOps, env).detach(); // Start the thread to check for Critical Ops
+}
+
+// Function to handle touch events
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_criticalforceentertainment_criticalops_CriticalOpsMainActivity_onTouchEvent(JNIEnv* env, jobject obj, jint action, jfloat x, jfloat y) {
+    if (!isCriticalOpsRunning) return; // Do nothing if Critical Ops is not running
+
+    switch (action) {
+        case 0: // ACTION_DOWN
+            // Trigger aimbot on touch down
+            setRotation(localEnemy.Character, Vector2(x, y));
+            break;
+        case 2: // ACTION_MOVE
+            // Adjust aim as finger moves
+            setRotation(localEnemy.Character, Vector2(x, y));
+            break;
+        case 1: // ACTION_UP
+            // Stop aimbot on touch up
+            break;
+    }
+}
+
+// Function to check if Critical Ops is running
+void checkForCriticalOps(JNIEnv* env) {
+    while (true) {
+        // Call the actual implementation to check if Critical Ops is running
+        isCriticalOpsRunning = isGameRunning(env, "com.criticalforceentertainment.criticalops");
+        
+        std::this_thread::sleep_for(std::chrono::seconds(5)); // Check every 5 seconds
+    }
+}
+
+// Actual implementation to check if a game is running
+bool isGameRunning(JNIEnv* env, const std::string& packageName) {
+    jclass activityManagerClass = env->FindClass("android/app/ActivityManager");
+    jmethodID getRunningAppProcesses = env->GetMethodID(activityManagerClass, "getRunningAppProcesses", "()Ljava/util/List;");
+    jobject activityManager = env->CallObjectMethod(env->GetStaticObjectField(activityManagerClass, env->GetFieldID(activityManagerClass, "INSTANCE", "Landroid/app/ActivityManager;")));
+    jobject runningAppProcesses = env->CallObjectMethod(activityManager, getRunningAppProcesses);
+    jclass listClass = env->FindClass("java/util/List");
+    jmethodID sizeMethod = env->GetMethodID(listClass, "size", "()I");
+    jmethodID getMethod = env->GetMethodID(listClass, "get", "(I)Ljava/lang/Object;");
+    jint size = env->CallIntMethod(runningAppProcesses, sizeMethod);
+
+    for (int i = 0; i < size; i++) {
+        jobject appProcessInfo = env->CallObjectMethod(runningAppProcesses, getMethod, i);
+        jclass appProcessInfoClass = env->FindClass("android/app/ActivityManager$RunningAppProcessInfo");
+        jfieldID processNameField = env->GetFieldID(appProcessInfoClass, "processName", "Ljava/lang/String;");
+        jstring processName = (jstring) env->GetObjectField(appProcessInfo, processNameField);
+        const char* processNameChars = env->GetStringUTFChars(processName, 0);
+
+        if (packageName == processNameChars) {
+            env->ReleaseStringUTFChars(processName, processNameChars);
+            return true;
+        }
+
+        env->ReleaseStringUTFChars(processName, processNameChars);
+    }
+
+    return false;
+}
+
+// (Rest of your code)
 
 // Function to get the team of a character
 int get_CharacterTeam(void* character) {
@@ -108,10 +192,12 @@ void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
     int localTeam = localEnemy.team;
     float closestEntDist = 99999.0f;
     void *closestCharacter = nullptr;
-    Vector3 localHead = getBonePosition(localEnemy.Character, 10);
+    Vector3 localHead = getBonePosition(localEnemy.Character, HEAD);
+
     if (getIsCrouched(localEnemy.Character)) {
         localHead = localHead - Vector3(0, 0.5, 0);
     }
+
     for (const auto& currentEnemy : EnemyList) {
         int curTeam = currentEnemy.team;
         int health = get_Health(currentEnemy.Character);
@@ -119,13 +205,13 @@ void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
         Vector2 newAngle;
         if (cfg.aimbot && localEnemy.Character && get_Health(localEnemy.Character) > 0 && health > 0) {
             for (BodyPart part : cfg.aimBones) {
-                Vector3 enemyBone = predictEnemyPosition(currentEnemy.Character, 0.1f);
+                Vector3 enemyBone = getBonePosition(currentEnemy.Character, part);
                 Vector3 deltavec = enemyBone - localHead;
                 float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
                 newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
                 newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
                 if (isInFov2(rotation, newAngle, cfg) && localTeam != curTeam && curTeam != -1) {
-                    if (cfg.visCheck && get_Health(localEnemy.Character) > 0 && isCharacterVisible(currentEnemy.Character, pSys)) {
+                    if (cfg.visCheck && isCharacterVisible(currentEnemy.Character, pSys)) {
                         canSet = true;
                     }
                     void *transform = getTransform(localEnemy.Character);
@@ -168,7 +254,7 @@ bool isCharacterVisible(void *character, void *pSys) {
                 shootControl = 1;
             }
         }
- void setRotation(void *character, Vector2 rotation) {
+void setRotation(void *character, Vector2 rotation) {
     std::lock_guard<std::mutex> guard(aimbot_mtx);
     Vector2 newAngle, difference = {0, 0};
     AimbotCfg cfg;
@@ -180,7 +266,7 @@ bool isCharacterVisible(void *character, void *pSys) {
     }
     void *closestEnt = (character && localEnemy.Character && get_IsInitialized(localEnemy.Character)) ? getValidEnt3(cfg, rotation) : nullptr;
     if (localEnemy.Character && get_Health(localEnemy.Character) > 0 && closestEnt) {
-        Vector3 localHead = getBonePosition(localEnemy.Character, 10);
+        Vector3 localHead = getBonePosition(localEnemy.Character, HEAD);
         if (getIsCrouched(localEnemy.Character)) {
             localHead -= Vector3(0, 0.5, 0);
         }
@@ -196,7 +282,7 @@ bool isCharacterVisible(void *character, void *pSys) {
             }
         }
     }
-  oSetRotation(character, rotation + difference);
+    oSetRotation(character, rotation + difference);
 }
 }
 
