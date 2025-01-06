@@ -12,7 +12,7 @@
 #include "GameTypes.h"
 
 // Configuration structures
-ESPCfg invisibleCfg, espcfg;
+ESPCfg espcfg;
 AimbotCfg pistolCfg, smgCfg, arCFg, shotgunCfg, sniperCfg;
 
 // Global variables
@@ -258,32 +258,33 @@ void setRotation(void *character, Vector2 rotation) {
     std::lock_guard<std::mutex> guard(aimbot_mtx);
     Vector2 newAngle, difference = {0, 0};
     AimbotCfg cfg;
+    
     if (localEnemy.Character) {
         currWeapon = getCurrentWeaponCategory(localEnemy.Character);
         if (currWeapon != -1) {
             configureWeapon(cfg, currWeapon);
         }
     }
+    
     void *closestEnt = (character && localEnemy.Character && get_IsInitialized(localEnemy.Character)) ? getValidEnt3(cfg, rotation) : nullptr;
     if (localEnemy.Character && get_Health(localEnemy.Character) > 0 && closestEnt) {
         Vector3 localHead = getBonePosition(localEnemy.Character, HEAD);
         if (getIsCrouched(localEnemy.Character)) {
             localHead -= Vector3(0, 0.5, 0);
         }
-        for (BodyPart part : {HEAD, CHEST, STOMACH}) { // Prioritize headshots
-            Vector3 enemyBone = getBonePosition(closestEnt, part);
-            Vector3 deltavec = enemyBone - localHead;
-            float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
-            newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
-            newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
-            if (cfg.aimbot && character == localEnemy.Character) {
-                difference = (cfg.fovCheck ? isInFov2(rotation, newAngle, cfg) : newAngle - rotation) / (cfg.aimbotSmooth ? 0.5 : 1); // Reduce smoothAmount
-                break; // Stop after the first valid target
-            }
+        
+        Vector3 enemyHead = getBonePosition(closestEnt, HEAD);
+        Vector3 deltavec = enemyHead - localHead;
+        float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
+        newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
+        newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
+        
+        if (cfg.aimbot && character == localEnemy.Character) {
+            difference = (cfg.fovCheck ? isInFov2(rotation, newAngle, cfg) : newAngle - rotation) / (cfg.aimbotSmooth ? 0.5 : 1); // Adjust smoothAmount as needed
         }
+        
+        oSetRotation(character, rotation + difference);
     }
-    oSetRotation(character, rotation + difference);
-}
 }
 
 // ESP function to draw information on the screen
