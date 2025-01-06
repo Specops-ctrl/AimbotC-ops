@@ -270,14 +270,14 @@ void setRotation(void *character, Vector2 rotation) {
         if (getIsCrouched(localEnemy.Character)) {
             localHead -= Vector3(0, 0.5, 0);
         }
-        for (BodyPart part : cfg.aimBones) {
+        for (BodyPart part : {HEAD, CHEST, STOMACH}) { // Prioritize headshots
             Vector3 enemyBone = getBonePosition(closestEnt, part);
             Vector3 deltavec = enemyBone - localHead;
             float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
             newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
             newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
             if (cfg.aimbot && character == localEnemy.Character) {
-                difference = (cfg.fovCheck ? isInFov2(rotation, newAngle, cfg) : newAngle - rotation) / (cfg.aimbotSmooth ? cfg.smoothAmount : 1);
+                difference = (cfg.fovCheck ? isInFov2(rotation, newAngle, cfg) : newAngle - rotation) / (cfg.aimbotSmooth ? 0.5 : 1); // Reduce smoothAmount
                 break; // Stop after the first valid target
             }
         }
