@@ -169,9 +169,10 @@ bool isInFov2(Vector2 rotation, Vector2 newAngle, AimbotCfg cfg) {
 Vector3 predictEnemyPosition(void *character, float time) {
     Vector3 currentPos = get_Position(getTransform(character));
     Vector3 velocity = get_CharacterVelocity(character);
-    return currentPos + velocity * time;
+    Vector3 acceleration = get_CharacterAcceleration(character); // Assume this function exists
+    Vector3 futurePos = currentPos + velocity * time + 0.5f * acceleration * time * time;
+    return futurePos;
 }
-
 // Function to configure weapon settings
 void configureWeapon(AimbotCfg &cfg, int currWeapon) {
     switch (currWeapon) {
@@ -222,7 +223,6 @@ void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
                         if (Vector3::Magnitude(currentEntDist) < closestEntDist && (!cfg.visCheck || canSet)) {
                             closestEntDist = Vector3::Magnitude(currentEntDist);
                             closestCharacter = currentEnemy.Character;
-                            break; // Stop after the first valid target
                         }
                     }
                 }
@@ -235,10 +235,18 @@ void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
 
 bool isCharacterVisible(void *character, void *pSys) {
     void *localCharacter = get_LocalCharacter(pSys);
-    return localCharacter && !isHeadBehindWall(localCharacter, character);
-}
-}
+    if (!localCharacter) return false;
 
+    // Check multiple points on the enemy's body to determine visibility
+    std::vector<BodyPart> bodyParts = {HEAD, CHEST, STOMACH, UPPERARM_LEFT, UPPERARM_RIGHT, LOWERLEG_LEFT, LOWERLEG_RIGHT};
+    for (BodyPart part : bodyParts) {
+        Vector3 bonePos = getBonePosition(character, part);
+        if (!isHeadBehindWall(localCharacter, character, bonePos)) {
+            return true;
+        }
+    }
+    return false;
+}
 
     oSetRotation(character, rotation + difference);
 }
@@ -371,7 +379,7 @@ void ESP() {
 
         if (esp) {
             if (espcfg.snapline && transformPos.Z > 0) {
-                DrawLine(ImVec2(glWidth / 2, glHeight), ImVec2(transformPos.X, transformPos.Y), ImColor(espcfg.snaplineColor.x, espcfg.snaplineColor.y, espcfg.snaplineColor.z, (255 - currentEntDist * 2)));
+                DrawLine(ImVec2(glWidth / 2, glHeight), ImVec2(transformPos.X, transformPos.Y), ImColor(255, 0, 0, (255 - currentEntDist * 2))); // Red color
             }
 
             if (espcfg.bone && transformPos.Z > 0 && currentCharacter != nullptr) {
@@ -391,17 +399,17 @@ void ESP() {
                 wschestPos.Y = glHeight - wschestPos.Y;
                 wsheadPos.Y = glHeight - wsheadPos.Y;
                 if (wschestPos.Z > 0 && wsneck.Z) {
-                    DrawLine(ImVec2(wschestPos.X, wschestPos.Y), ImVec2(wsneck.X, wsneck.Y), ImColor(espcfg.boneColor.x, espcfg.boneColor.y, espcfg.boneColor.z), 3, background);
+                    DrawLine(ImVec2(wschestPos.X, wschestPos.Y), ImVec2(wsneck.X, wsneck.Y), ImColor(255, 0, 0), 3, background); // Red color
                 }
 
                 if (wsheadPos.Z > 0 && wschestPos.Z > 0) {
                     float radius = sqrt(diff.X * diff.X + diff.Y * diff.Y);
-                    background->AddCircle(ImVec2(wsheadPos.X, wsheadPos.Y), radius / 2, IM_COL32(espcfg.boneColor.x * 255, espcfg.boneColor.y * 255, espcfg.boneColor.z * 255, 255), 0, 3.0f);
+                    background->AddCircle(ImVec2(wsheadPos.X, wsheadPos.Y), radius / 2, IM_COL32(255, 0, 0, 255), 0, 3.0f); // Red color
                 }
             }
 
             if (espcfg.box && transformPos.Z > 0 && wsAboveHead.Z > 0) {
-                DrawOutlinedBox2(wsAboveHead.X - width / 2, wsAboveHead.Y, width, height, ImVec4(espcfg.boxColor.x, espcfg.boxColor.y, espcfg.boxColor.z, 255), 3, background);
+                DrawOutlinedBox2(wsAboveHead.X - width / 2, wsAboveHead.Y, width, height, ImVec4(255, 0, 0, 255), 3, background); // Red color
             }
 
             if (espcfg.healthesp && transformPos.Z > 0 && wsAboveHead.Z > 0) {
@@ -420,7 +428,7 @@ void ESP() {
                 void *player = get_Player(currentCharacter);
                 if (player == nullptr) continue;
                 std::string username = get_PlayerUsername(player);
-                DrawText(ImVec2(transformPos.X - width / 2, transformPos.Y - 12), espcfg.nameColor, username, espFont, background);
+                DrawText(ImVec2(transformPos.X - width / 2, transformPos.Y - 12), ImVec4(255, 0, 0, 255), username, espFont, background); // Red color
             }
         }
     }
