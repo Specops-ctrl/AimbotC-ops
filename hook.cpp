@@ -34,6 +34,7 @@ bool isCharacterVisible(void *character, void *pSys);
 void setRotation(void *character, Vector2 rotation);
 void ESP();
 void checkForCriticalOps(JNIEnv* env);
+void stopPlayerMovement();
 
 // Function to get the transform of a character
 void *getTransform(void *character) {
@@ -173,6 +174,7 @@ Vector3 predictEnemyPosition(void *character, float time) {
     Vector3 futurePos = currentPos + velocity * time + 0.5f * acceleration * time * time;
     return futurePos;
 }
+
 // Function to configure weapon settings
 void configureWeapon(AimbotCfg &cfg, int currWeapon) {
     switch (currWeapon) {
@@ -231,68 +233,76 @@ void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
     }
     return closestCharacter;
 }
+
+// Function to stop player movement
+void stopPlayerMovement() {
+    // Implement the logic to stop player movement here
+    // This is a placeholder function and needs to be implemented according to the game's movement control logic
 }
 
-bool isCharacterVisible(void *character, void *pSys) {
-    void *localCharacter = get_LocalCharacter(pSys);
-    if (!localCharacter) return false;
-
-    // Check multiple points on the enemy's body to determine visibility
-    std::vector<BodyPart> bodyParts = {HEAD, CHEST, STOMACH, UPPERARM_LEFT, UPPERARM_RIGHT, LOWERLEG_LEFT, LOWERLEG_RIGHT};
-    for (BodyPart part : bodyParts) {
-        Vector3 bonePos = getBonePosition(character, part);
-        if (!isHeadBehindWall(localCharacter, character, bonePos)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-    oSetRotation(character, rotation + difference);
-}
-    if (cfg.triggerbot && closestEnt && localEnemy.Character && get_Health(localEnemy.Character) > 0 && !get_Invulnerable(closestEnt)) {
-        int hitIndex = 0;
-        void *camera = get_camera();
-        if (camera) {
-            Ray ray = ScreenPointToRay(camera, Vector2(glWidth / 2, glHeight / 2), 2);
-            if (closestEnt) {
-                UpdateCharacterHitBuffer(pSys, closestEnt, ray, &hitIndex);
-            }
-            if (hitIndex && !shootControl) {
-                shootControl = 1;
-            }
-        }
+// Modified setRotation function to include stop movement logic
 void setRotation(void *character, Vector2 rotation) {
     std::lock_guard<std::mutex> guard(aimbot_mtx);
     Vector2 newAngle, difference = {0, 0};
     AimbotCfg cfg;
-    
+
     if (localEnemy.Character) {
         currWeapon = getCurrentWeaponCategory(localEnemy.Character);
         if (currWeapon != -1) {
             configureWeapon(cfg, currWeapon);
         }
     }
-    
+
     void *closestEnt = (character && localEnemy.Character && get_IsInitialized(localEnemy.Character)) ? getValidEnt3(cfg, rotation) : nullptr;
     if (localEnemy.Character && get_Health(localEnemy.Character) > 0 && closestEnt) {
         Vector3 localHead = getBonePosition(localEnemy.Character, HEAD);
         if (getIsCrouched(localEnemy.Character)) {
             localHead -= Vector3(0, 0.5, 0);
         }
-        
-        Vector3 enemyHead = getBonePosition(closestEnt, HEAD);
-        Vector3 deltavec = enemyHead - localHead;
+
+        // Check if the head is visible, if not, aim at other body parts
+        std::vector<BodyPart> bodyParts = {HEAD, CHEST, STOMACH, UPPERARM_LEFT, UPPERARM_RIGHT, LOWERLEG_LEFT, LOWERLEG_RIGHT};
+        Vector3 targetBone = getBonePosition(closestEnt, HEAD);
+        bool targetVisible = isCharacterVisible(closestEnt, pSys);
+
+        if (!targetVisible) {
+            for (BodyPart part : bodyParts) {
+                targetBone = getBonePosition(closestEnt, part);
+                if (isCharacterVisible(closestEnt, pSys)) {
+                    targetVisible = true;
+                    break;
+                }
+            }
+        }
+
+        Vector3 deltavec = targetBone - localHead;
         float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
         newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
         newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
-        
+
         if (cfg.aimbot && character == localEnemy.Character) {
             difference = (cfg.fovCheck ? isInFov2(rotation, newAngle, cfg) : newAngle - rotation) / (cfg.aimbotSmooth ? 0.5 : 1); // Adjust smoothAmount as needed
         }
-        
+
+        // Ensure movement is only stopped if needed for greater accuracy
+        if (shouldStopForAccuracy(cfg, newAngle, rotation)) {
+            stopPlayerMovement();
+        }
+
         oSetRotation(character, rotation + difference);
     }
+}
+
+bool shouldStopForAccuracy(AimbotCfg cfg, Vector2 newAngle, Vector2 rotation) {
+    // Implement logic to determine if player movement should be stopped for greater accuracy
+    // For example, if the difference between newAngle and rotation is large, return true
+    Vector2 difference = newAngle - rotation;
+    return (fabs(difference.X) > cfg.accuracyThreshold || fabs(difference.Y) > cfg.accuracyThreshold);
+}
+
+void stopPlayerMovement() {
+    // Implement logic to stop player movement
+    // This might involve setting player velocity to zero or similar actions
 }
 
 // ESP function to draw information on the screen
@@ -404,32 +414,4 @@ void ESP() {
 
                 if (wsheadPos.Z > 0 && wschestPos.Z > 0) {
                     float radius = sqrt(diff.X * diff.X + diff.Y * diff.Y);
-                    background->AddCircle(ImVec2(wsheadPos.X, wsheadPos.Y), radius / 2, IM_COL32(255, 0, 0, 255), 0, 3.0f); // Red color
-                }
-            }
-
-            if (espcfg.box && transformPos.Z > 0 && wsAboveHead.Z > 0) {
-                DrawOutlinedBox2(wsAboveHead.X - width / 2, wsAboveHead.Y, width, height, ImVec4(255, 0, 0, 255), 3, background); // Red color
-            }
-
-            if (espcfg.healthesp && transformPos.Z > 0 && wsAboveHead.Z > 0) {
-                DrawOutlinedFilledRect(wsAboveHead.X - width / 2 - 12, wsAboveHead.Y + height * (1 - (static_cast<float>(health) / 100.0f)), 3, height * (static_cast<float>(health) / 100.0f), HealthToColor(health), background);
-            }
-
-            if (espcfg.healthNumber && transformPos.Z > 0 && wsAboveHead.Z > 0) {
-                DrawText(ImVec2(wsAboveHead.X - width / 2 - 17, wsAboveHead.Y + height * (1 - static_cast<float>(health) / 100.0f) - 3), ImVec4(1, 1, 1, 255), std::to_string(health), espFont, background);
-            }
-
-            if (espcfg.distance && transformPos.Z > 0) {
-                DrawText(ImVec2(transformPos.X + width / 2, transformPos.Y - 12), ImVec4(1, 1, 1, 255), std::to_string(static_cast<int>(currentEntDist)) + "m", espFont, background);
-            }
-
-            if (espcfg.name && transformPos.Z > 0 && currentCharacter != nullptr) {
-                void *player = get_Player(currentCharacter);
-                if (player == nullptr) continue;
-                std::string username = get_PlayerUsername(player);
-                DrawText(ImVec2(transformPos.X - width / 2, transformPos.Y - 12), ImVec4(255, 0, 0, 255), username, espFont, background); // Red color
-            }
-        }
-    }
-}
+                    background->AddCircle(ImVec2(wsheadPos.X, wsheadPos.Y), radius / 2, IM_COL32(255, 0, 0, 255), 0, 3.0f); //
