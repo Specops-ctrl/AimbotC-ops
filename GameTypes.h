@@ -118,9 +118,9 @@ struct BurstData
 struct AimbotCfg {
     bool aimbot = true;
     bool visCheck = true;
-    std::vector<BodyPart> aimBones = {HEAD, CHEST}; // Target head, chest, and stomach
+    std::vector<BodyPart> aimBones = {HEAD,}; // Target head, chest, and stomach
     bool aimbotSmooth = true;
-    float smoothAmount = 0.3f;
+    float smoothAmount = 0.2f;
     bool fovCheck = true;
     float fovValue = 360.0f;
     bool drawFov = true;
