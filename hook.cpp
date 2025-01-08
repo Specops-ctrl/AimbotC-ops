@@ -35,6 +35,9 @@ void setRotation(void *character, Vector2 rotation);
 void ESP();
 void checkForCriticalOps(JNIEnv* env);
 void stopPlayerMovement();
+Vector2 getRecoilOffset();
+bool shouldStopForAccuracy(AimbotCfg cfg, Vector2 newAngle, Vector2 rotation);
+void RadarHack(); // Radar hack function declaration
 
 // Function to get the transform of a character
 void *getTransform(void *character) {
@@ -77,7 +80,10 @@ void checkForCriticalOps(JNIEnv* env) {
     while (true) {
         // Call the actual implementation to check if Critical Ops is running
         isCriticalOpsRunning = isGameRunning(env, "com.criticalforceentertainment.criticalops");
-        
+        if (isCriticalOpsRunning) {
+            ESP(); // Start ESP when the game is running
+            RadarHack(); // Start Radar Hack when the game is running
+        }
         std::this_thread::sleep_for(std::chrono::seconds(5)); // Check every 5 seconds
     }
 }
@@ -110,8 +116,6 @@ bool isGameRunning(JNIEnv* env, const std::string& packageName) {
 
     return false;
 }
-
-// (Rest of your code)
 
 // Function to get the team of a character
 int get_CharacterTeam(void* character) {
@@ -185,6 +189,16 @@ void configureWeapon(AimbotCfg &cfg, int currWeapon) {
         case 4: cfg = sniperCfg; break;
         case 5: cfg = assaultCfg; break;
     }
+    cfg.aimBones = {HEAD, CHEST}; // Prioritize head and chest
+    cfg.aimbotSmooth = 0.1; // Smooth aim adjustment
+    cfg.fovCheck = false; // Ignore FOV checks
+}
+
+// Function to get the current recoil offset
+Vector2 getRecoilOffset() {
+    // Implement logic to get the current recoil offset based on the weapon and shooting state
+    // Placeholder values for recoil offset
+    return Vector2(0.5, 0.5); 
 }
 
 void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
@@ -240,11 +254,11 @@ void stopPlayerMovement() {
     // This is a placeholder function and needs to be implemented according to the game's movement control logic
 }
 
-// Modified setRotation function to include stop movement logic
 void setRotation(void *character, Vector2 rotation) {
     std::lock_guard<std::mutex> guard(aimbot_mtx);
     Vector2 newAngle, difference = {0, 0};
     AimbotCfg cfg;
+    bool aimForHead = true;
 
     if (localEnemy.Character) {
         currWeapon = getCurrentWeaponCategory(localEnemy.Character);
@@ -260,35 +274,21 @@ void setRotation(void *character, Vector2 rotation) {
             localHead -= Vector3(0, 0.5, 0);
         }
 
-        // Check if the head is visible, if not, aim at other body parts
-        std::vector<BodyPart> bodyParts = {HEAD, CHEST, STOMACH, UPPERARM_LEFT, UPPERARM_RIGHT, LOWERLEG_LEFT, LOWERLEG_RIGHT};
-        Vector3 targetBone = getBonePosition(closestEnt, HEAD);
-        bool targetVisible = isCharacterVisible(closestEnt, pSys);
+        // Determine if we should aim for the head or chest
+        int accuracy = rand() % 100;
+        aimForHead = (accuracy < 90) ? false : true; // 90% chance to aim for the chest
 
-        if (!targetVisible) {
-            for (BodyPart part : bodyParts) {
-                targetBone = getBonePosition(closestEnt, part);
-                if (isCharacterVisible(closestEnt, pSys)) {
-                    targetVisible = true;
-                    break;
-                }
-            }
-        }
-
+        Vector3 targetBone = aimForHead ? getBonePosition(closestEnt, HEAD) : getBonePosition(closestEnt, CHEST);
         Vector3 deltavec = targetBone - localHead;
         float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
         newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
         newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
 
-        if (cfg.aimbot && character == localEnemy.Character) {
-            difference = (cfg.fovCheck ? isInFov2(rotation, newAngle, cfg) : newAngle - rotation) / (cfg.aimbotSmooth ? 0.5 : 1); // Adjust smoothAmount as needed
-        }
+        // Apply recoil compensation
+        Vector2 recoilOffset = getRecoilOffset();
+        newAngle -= recoilOffset;
 
-        // Ensure movement is only stopped if needed for greater accuracy
-        if (shouldStopForAccuracy(cfg, newAngle, rotation)) {
-            stopPlayerMovement();
-        }
-
+        difference = (newAngle - rotation) * cfg.aimbotSmooth; // Smooth aim adjustment
         oSetRotation(character, rotation + difference);
     }
 }
@@ -298,11 +298,6 @@ bool shouldStopForAccuracy(AimbotCfg cfg, Vector2 newAngle, Vector2 rotation) {
     // For example, if the difference between newAngle and rotation is large, return true
     Vector2 difference = newAngle - rotation;
     return (fabs(difference.X) > cfg.accuracyThreshold || fabs(difference.Y) > cfg.accuracyThreshold);
-}
-
-void stopPlayerMovement() {
-    // Implement logic to stop player movement
-    // This might involve setting player velocity to zero or similar actions
 }
 
 // ESP function to draw information on the screen
@@ -403,15 +398,4 @@ void ESP() {
                 DrawBones(currentCharacter, UPPERARM_LEFT, CHEST, espcfg, background);
                 DrawBones(currentCharacter, UPPERARM_RIGHT, CHEST, espcfg, background);
                 Vector3 diff = wschestPos - wsheadPos;
-                Vector3 neck = (chestPos + headPos) / 2;
-                Vector3 wsneck = WorldToScreen(cam, neck, 2);
-                wsneck.Y = glHeight - wsneck.Y;
-                wschestPos.Y = glHeight - wschestPos.Y;
-                wsheadPos.Y = glHeight - wsheadPos.Y;
-                if (wschestPos.Z > 0 && wsneck.Z) {
-                    DrawLine(ImVec2(wschestPos.X, wschestPos.Y), ImVec2(wsneck.X, wsneck.Y), ImColor(255, 0, 0), 3, background); // Red color
-                }
-
-                if (wsheadPos.Z > 0 && wschestPos.Z > 0) {
-                    float radius = sqrt(diff.X * diff.X + diff.Y * diff.Y);
-                    background->AddCircle(ImVec2(wsheadPos.X, wsheadPos.Y), radius / 2, IM_COL32(255, 0, 0, 255), 0, 3.0f); //
+                Vector3 neck = (chestPos + headPos) /
