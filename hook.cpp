@@ -189,8 +189,8 @@ void configureWeapon(AimbotCfg &cfg, int currWeapon) {
         case 4: cfg = sniperCfg; break;
         case 5: cfg = assaultCfg; break;
     }
-    cfg.aimBones = {HEAD, CHEST}; // Prioritize head and chest
-    cfg.aimbotSmooth = 0.1; // Smooth aim adjustment
+    cfg.aimBones = {HEAD}; // Always aim for the head
+    cfg.aimbotSmooth = 0.01; // Very fast aim adjustment
     cfg.fovCheck = false; // Ignore FOV checks
 }
 
@@ -258,7 +258,6 @@ void setRotation(void *character, Vector2 rotation) {
     std::lock_guard<std::mutex> guard(aimbot_mtx);
     Vector2 newAngle, difference = {0, 0};
     AimbotCfg cfg;
-    bool aimForHead = true;
 
     if (localEnemy.Character) {
         currWeapon = getCurrentWeaponCategory(localEnemy.Character);
@@ -274,11 +273,7 @@ void setRotation(void *character, Vector2 rotation) {
             localHead -= Vector3(0, 0.5, 0);
         }
 
-        // Determine if we should aim for the head or chest
-        int accuracy = rand() % 100;
-        aimForHead = (accuracy < 90) ? false : true; // 90% chance to aim for the chest
-
-        Vector3 targetBone = aimForHead ? getBonePosition(closestEnt, HEAD) : getBonePosition(closestEnt, CHEST);
+        Vector3 targetBone = getBonePosition(closestEnt, HEAD);
         Vector3 deltavec = targetBone - localHead;
         float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
         newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
@@ -288,7 +283,7 @@ void setRotation(void *character, Vector2 rotation) {
         Vector2 recoilOffset = getRecoilOffset();
         newAngle -= recoilOffset;
 
-        difference = (newAngle - rotation) * cfg.aimbotSmooth; // Smooth aim adjustment
+        difference = (newAngle - rotation) * cfg.aimbotSmooth; // Very fast aim adjustment
         oSetRotation(character, rotation + difference);
     }
 }
