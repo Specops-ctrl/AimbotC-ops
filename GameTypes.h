@@ -120,9 +120,9 @@ struct AimbotCfg {
     bool visCheck = true;
     std::vector<BodyPart> aimBones = {HEAD, CHEST}; // Target head, chest, and stomach
     bool aimbotSmooth = true;
-    float smoothAmount = 0.1f; // Adjusted for smoother aiming
+    float smoothAmount = 0.2f; // Adjusted for smoother aiming
     bool fovCheck = true;
-    float fovValue = 105.0f; // Medium range FOV
+    float fovValue = 60.0f; // Medium range FOV
     bool drawFov = true;
     bool onShoot = true;
     bool triggerbot = true;
