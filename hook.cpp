@@ -275,7 +275,7 @@ void setRotation(void *character, Vector2 rotation) {
         Vector2 recoilOffset = getRecoilOffset();
         newAngle -= recoilOffset;
 
-        difference = (newAngle - rotation) * cfg.aimbotSmooth; // Very fast aim adjustment
+        difference = (newAngle - rotation); // Instant aim adjustment
         oSetRotation(character, rotation + difference);
     }
 }
