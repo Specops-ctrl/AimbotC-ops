@@ -182,8 +182,9 @@ void configureWeapon(AimbotCfg &cfg, int currWeapon) {
         case 4: cfg = sniperCfg; break;
     }
     cfg.aimBones = {HEAD}; // Always aim for the head
-    cfg.aimbotSmooth = 0.02; // Very fast aim adjustment
-    cfg.fovCheck = false; // Ignore FOV checks
+    cfg.aimbotSmooth = 0.1; // Increase aim adjustment speed
+    cfg.fovCheck = true; // Enable FOV checks
+    cfg.fovValue = 60.0; // Increase FOV value for wider aim area
 }
 
 // Function to get the current recoil offset
