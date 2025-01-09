@@ -393,4 +393,15 @@ void ESP() {
                 DrawBones(currentCharacter, UPPERARM_LEFT, CHEST, espcfg, background);
                 DrawBones(currentCharacter, UPPERARM_RIGHT, CHEST, espcfg, background);
                 Vector3 diff = wschestPos - wsheadPos;
-                Vector3 neck = (chestPos + headPos) /
+                Vector3 neck = (chestPos + headPos) / 2;
+                DrawBones(currentCharacter, CHEST, neck, espcfg, background);
+                DrawBones(currentCharacter, neck, headPos, espcfg, background);
+            }
+        }
+    }
+}
+
+// Radar hack function to show enemy positions on the in-game map
+void RadarHack() {
+    std::lock_guard<std::mutex> guard(esp_mtx);
+    auto background = ImGui::Get
