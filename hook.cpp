@@ -187,10 +187,10 @@ void configureWeapon(AimbotCfg &cfg, int currWeapon) {
         case 2: cfg = smgCfg; break;
         case 3: cfg = shotgunCfg; break;
         case 4: cfg = sniperCfg; break;
-        case 5: cfg = assaultCfg; break;
+        // Remove assaultCfg case if not needed
     }
     cfg.aimBones = {HEAD}; // Always aim for the head
-    cfg.aimbotSmooth = 0.01; // Very fast aim adjustment
+    cfg.aimbotSmooth = 0.02; // Very fast aim adjustment
     cfg.fovCheck = false; // Ignore FOV checks
 }
 
@@ -221,25 +221,23 @@ void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
         bool canSet = false;
         Vector2 newAngle;
         if (cfg.aimbot && localEnemy.Character && get_Health(localEnemy.Character) > 0 && health > 0) {
-            for (BodyPart part : cfg.aimBones) {
-                Vector3 enemyBone = getBonePosition(currentEnemy.Character, part);
-                Vector3 deltavec = enemyBone - localHead;
-                float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
-                newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
-                newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
-                if (isInFov2(rotation, newAngle, cfg) && localTeam != curTeam && curTeam != -1) {
-                    if (cfg.visCheck && isCharacterVisible(currentEnemy.Character, pSys)) {
-                        canSet = true;
-                    }
-                    void *transform = getTransform(localEnemy.Character);
-                    if (transform) {
-                        Vector3 localPosition = get_Position(transform);
-                        Vector3 currentCharacterPosition = get_Position(getTransform(currentEnemy.Character));
-                        Vector3 currentEntDist = Vector3::Distance(localPosition, currentCharacterPosition);
-                        if (Vector3::Magnitude(currentEntDist) < closestEntDist && (!cfg.visCheck || canSet)) {
-                            closestEntDist = Vector3::Magnitude(currentEntDist);
-                            closestCharacter = currentEnemy.Character;
-                        }
+            Vector3 enemyBone = getBonePosition(currentEnemy.Character, HEAD);
+            Vector3 deltavec = enemyBone - localHead;
+            float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
+            newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
+            newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
+            if (isInFov2(rotation, newAngle, cfg) && localTeam != curTeam && curTeam != -1) {
+                if (cfg.visCheck && isCharacterVisible(currentEnemy.Character, pSys)) {
+                    canSet = true;
+                }
+                void *transform = getTransform(localEnemy.Character);
+                if (transform) {
+                    Vector3 localPosition = get_Position(transform);
+                    Vector3 currentCharacterPosition = get_Position(getTransform(currentEnemy.Character));
+                    Vector3 currentEntDist = Vector3::Distance(localPosition, currentCharacterPosition);
+                    if (Vector3::Magnitude(currentEntDist) < closestEntDist && (!cfg.visCheck || canSet)) {
+                        closestEntDist = Vector3::Magnitude(currentEntDist);
+                        closestCharacter = currentEnemy.Character;
                     }
                 }
             }
@@ -247,7 +245,6 @@ void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
     }
     return closestCharacter;
 }
-
 // Function to stop player movement
 void stopPlayerMovement() {
     // Implement the logic to stop player movement here
