@@ -4,16 +4,12 @@
 #include <chrono>
 #include <string>
 #include <vector>
-
-// Include necessary Android headers
-#include <android/asset_manager.h>
-#include <android/asset_manager_jni.h>
-
+#include <mutex>
 #include "GameTypes.h"
 
 // Configuration structures
 ESPCfg espcfg;
-AimbotCfg pistolCfg, smgCfg, arCFg, shotgunCfg, sniperCfg;
+AimbotCfg pistolCfg, smgCfg, arCfg, shotgunCfg, sniperCfg;
 
 // Global variables
 void* TouchControls = nullptr;
@@ -46,8 +42,7 @@ void *getTransform(void *character) {
 }
 
 // Initialization function for touch controls
-extern "C"
-JNIEXPORT void JNICALL
+extern "C" JNIEXPORT void JNICALL
 Java_com_criticalforceentertainment_criticalops_CriticalOpsMainActivity_initTouchControls(JNIEnv* env, jobject obj) {
     // Initialize TouchControls here
     TouchControls = new YourTouchControlClass(); // Example initialization
@@ -55,8 +50,7 @@ Java_com_criticalforceentertainment_criticalops_CriticalOpsMainActivity_initTouc
 }
 
 // Function to handle touch events
-extern "C"
-JNIEXPORT void JNICALL
+extern "C" JNIEXPORT void JNICALL
 Java_com_criticalforceentertainment_criticalops_CriticalOpsMainActivity_onTouchEvent(JNIEnv* env, jobject obj, jint action, jfloat x, jfloat y) {
     if (!isCriticalOpsRunning) return; // Do nothing if Critical Ops is not running
 
@@ -78,7 +72,6 @@ Java_com_criticalforceentertainment_criticalops_CriticalOpsMainActivity_onTouchE
 // Function to check if Critical Ops is running
 void checkForCriticalOps(JNIEnv* env) {
     while (true) {
-        // Call the actual implementation to check if Critical Ops is running
         isCriticalOpsRunning = isGameRunning(env, "com.criticalforceentertainment.criticalops");
         if (isCriticalOpsRunning) {
             ESP(); // Start ESP when the game is running
@@ -183,11 +176,10 @@ Vector3 predictEnemyPosition(void *character, float time) {
 void configureWeapon(AimbotCfg &cfg, int currWeapon) {
     switch (currWeapon) {
         case 0: cfg = pistolCfg; break;
-        case 1: cfg = arCFg; break;
+        case 1: cfg = arCfg; break;
         case 2: cfg = smgCfg; break;
         case 3: cfg = shotgunCfg; break;
         case 4: cfg = sniperCfg; break;
-        // Remove assaultCfg case if not needed
     }
     cfg.aimBones = {HEAD}; // Always aim for the head
     cfg.aimbotSmooth = 0.02; // Very fast aim adjustment
@@ -201,6 +193,7 @@ Vector2 getRecoilOffset() {
     return Vector2(0.5, 0.5); 
 }
 
+// Function to get the valid enemy target
 void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
     int id = getLocalId(pSys);
     if (id == 0) return nullptr;
@@ -245,12 +238,14 @@ void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
     }
     return closestCharacter;
 }
+
 // Function to stop player movement
 void stopPlayerMovement() {
     // Implement the logic to stop player movement here
     // This is a placeholder function and needs to be implemented according to the game's movement control logic
 }
 
+// Function to set the rotation for aiming
 void setRotation(void *character, Vector2 rotation) {
     std::lock_guard<std::mutex> guard(aimbot_mtx);
     Vector2 newAngle, difference = {0, 0};
@@ -285,9 +280,8 @@ void setRotation(void *character, Vector2 rotation) {
     }
 }
 
+// Function to check if movement should be stopped for accuracy
 bool shouldStopForAccuracy(AimbotCfg cfg, Vector2 newAngle, Vector2 rotation) {
-    // Implement logic to determine if player movement should be stopped for greater accuracy
-    // For example, if the difference between newAngle and rotation is large, return true
     Vector2 difference = newAngle - rotation;
     return (fabs(difference.X) > cfg.accuracyThreshold || fabs(difference.Y) > cfg.accuracyThreshold);
 }
@@ -298,7 +292,7 @@ void ESP() {
 
     std::lock_guard<std::mutex> guard(esp_mtx);
     auto background = ImGui::GetBackgroundDrawList();
-    if (pSys == nullptr || !(esp || pistolCfg.aimbot || shotgunCfg.aimbot || smgCfg.aimbot || arCFg.aimbot || sniperCfg.aimbot)) {
+    if (pSys == nullptr || !(esp || pistolCfg.aimbot || shotgunCfg.aimbot || smgCfg.aimbot || arCfg.aimbot || sniperCfg.aimbot)) {
         return;
     }
 
@@ -402,3 +396,4 @@ void ESP() {
 void RadarHack() {
     std::lock_guard<std::mutex> guard(esp_mtx);
     auto background = ImGui::Get
+}
