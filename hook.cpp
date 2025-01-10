@@ -183,7 +183,7 @@ void configureWeapon(AimbotCfg &cfg, int currWeapon) {
     }
     cfg.aimBones = {HEAD}; // Always aim for the head
     cfg.aimbotSmooth = 0; // Remove smoothing for instant aim
-    cfg.fovCheck = false; // Ignore FOV checks
+    cfg.fovCheck = true; // Ignore FOV checks
 }
 
 // Function to get the current recoil offset
