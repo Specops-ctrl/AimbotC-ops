@@ -183,7 +183,10 @@ void configureWeapon(AimbotCfg &cfg, int currWeapon) {
     }
     cfg.aimBones = {HEAD}; // Always aim for the head
     cfg.aimbotSmooth = 0; // Remove smoothing for instant aim
-    cfg.fovCheck = true; // Ignore FOV checks
+    cfg.fovCheck = false; // Ignore FOV checks
+    cfg.aimbot = true; // Ensure aimbot is enabled
+    cfg.onShoot = true; // Ensure aimbot activates on shooting
+    std::cout << "Aimbot Configured: " << cfg.aimbot << std::endl;
 }
 
 // Function to get the current recoil offset
