@@ -69,18 +69,40 @@ Java_com_criticalforceentertainment_criticalops_CriticalOpsMainActivity_onTouchE
     }
 }
 
-// Function to check if Critical Ops is running
+// Function to check if Critical Ops is running and enable aimbot
 void checkForCriticalOps(JNIEnv* env) {
     while (true) {
         isCriticalOpsRunning = isGameRunning(env, "com.criticalforceentertainment.criticalops");
         if (isCriticalOpsRunning) {
             ESP(); // Start ESP when the game is running
             RadarHack(); // Start Radar Hack when the game is running
+            enableAimbot(); // Start Aimbot when the game is running
+        } else {
+            disableAimbot(); // Stop Aimbot when the game is not running
         }
         std::this_thread::sleep_for(std::chrono::seconds(5)); // Check every 5 seconds
     }
 }
 
+// Function to enable aimbot
+void enableAimbot() {
+    configureWeapon(pistolCfg, currWeapon);
+    configureWeapon(smgCfg, currWeapon);
+    configureWeapon(arCfg, currWeapon);
+    configureWeapon(shotgunCfg, currWeapon);
+    configureWeapon(sniperCfg, currWeapon);
+    // Additional configuration as needed
+}
+
+// Function to disable aimbot
+void disableAimbot() {
+    pistolCfg.aimbot = false;
+    smgCfg.aimbot = false;
+    arCfg.aimbot = false;
+    shotgunCfg.aimbot = false;
+    sniperCfg.aimbot = false;
+    // Additional configuration as needed
+}
 // Actual implementation to check if a game is running
 bool isGameRunning(JNIEnv* env, const std::string& packageName) {
     jclass activityManagerClass = env->FindClass("android/app/ActivityManager");
@@ -182,11 +204,46 @@ void configureWeapon(AimbotCfg &cfg, int currWeapon) {
         case 4: cfg = sniperCfg; break;
     }
     cfg.aimBones = {HEAD}; // Always aim for the head
-    cfg.aimbotSmooth = 0; // Remove smoothing for instant aim
+    cfg.aimbotSmooth = false; // Disable smoothing for instant aim
+    cfg.smoothAmount = 0.0f; // No smoothing amount
     cfg.fovCheck = false; // Ignore FOV checks
     cfg.aimbot = true; // Ensure aimbot is enabled
     cfg.onShoot = true; // Ensure aimbot activates on shooting
     std::cout << "Aimbot Configured: " << cfg.aimbot << std::endl;
+}
+
+void setRotation(void *character, Vector2 rotation) {
+    std::lock_guard<std::mutex> guard(aimbot_mtx);
+    Vector2 newAngle, difference = {0, 0};
+    AimbotCfg cfg;
+
+    if (localEnemy.Character) {
+        currWeapon = getCurrentWeaponCategory(localEnemy.Character);
+        if (currWeapon != -1) {
+            configureWeapon(cfg, currWeapon);
+        }
+    }
+
+    void *closestEnt = (character && localEnemy.Character && get_IsInitialized(localEnemy.Character)) ? getValidEnt3(cfg, rotation) : nullptr;
+    if (localEnemy.Character && get_Health(localEnemy.Character) > 0 && closestEnt) {
+        Vector3 localHead = getBonePosition(localEnemy.Character, HEAD);
+        if (getIsCrouched(localEnemy.Character)) {
+            localHead -= Vector3(0, 0.5, 0);
+        }
+
+        Vector3 targetBone = getBonePosition(closestEnt, HEAD);
+        Vector3 deltavec = targetBone - localHead;
+        float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
+        newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
+        newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
+
+        // Apply recoil compensation
+        Vector2 recoilOffset = getRecoilOffset();
+        newAngle -= recoilOffset;
+
+        difference = (newAngle - rotation); // Instant aim adjustment
+        oSetRotation(character, rotation + difference);
+    }
 }
 
 // Function to get the current recoil offset
