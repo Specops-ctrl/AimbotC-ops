@@ -117,16 +117,17 @@ struct BurstData
 
 struct AimbotCfg {
     bool aimbot = true;
-    bool visCheck = true;
+    bool visCheck = false; // Disable visibility checks
     std::vector<BodyPart> aimBones = {HEAD, CHEST}; // Target head and chest
-    bool aimbotSmooth = false;
+    bool aimbotSmooth = false; // Disable smoothing for instant aiming
     float smoothAmount = 0.0f;
     bool fovCheck = false; // Ignore FOV checks
-    float fovValue = 49.0f; // Increase FOV for larger aiming area
+    float fovValue = 360.0f; // Cover all possible angles
     bool drawFov = true;
     bool onShoot = true;
     bool triggerbot = true;
 };
+
 struct CustomWeapon
 {
     void* EGID = 0;
