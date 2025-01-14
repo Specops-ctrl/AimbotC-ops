@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <mutex>
+#include <cstdlib> // Include for getenv
 #include "GameTypes.h"
 
 // Configuration structures
@@ -103,6 +104,7 @@ void disableAimbot() {
     sniperCfg.aimbot = false;
     // Additional configuration as needed
 }
+
 // Actual implementation to check if a game is running
 bool isGameRunning(JNIEnv* env, const std::string& packageName) {
     jclass activityManagerClass = env->FindClass("android/app/ActivityManager");
@@ -209,48 +211,8 @@ void configureWeapon(AimbotCfg &cfg, int currWeapon) {
     cfg.fovCheck = false; // Ignore FOV checks
     cfg.aimbot = true; // Ensure aimbot is enabled
     cfg.onShoot = true; // Ensure aimbot activates on shooting
+    cfg.visCheck = false; // Disable visibility checks
     std::cout << "Aimbot Configured: " << cfg.aimbot << std::endl;
-}
-
-void setRotation(void *character, Vector2 rotation) {
-    std::lock_guard<std::mutex> guard(aimbot_mtx);
-    Vector2 newAngle, difference = {0, 0};
-    AimbotCfg cfg;
-
-    if (localEnemy.Character) {
-        currWeapon = getCurrentWeaponCategory(localEnemy.Character);
-        if (currWeapon != -1) {
-            configureWeapon(cfg, currWeapon);
-        }
-    }
-
-    void *closestEnt = (character && localEnemy.Character && get_IsInitialized(localEnemy.Character)) ? getValidEnt3(cfg, rotation) : nullptr;
-    if (localEnemy.Character && get_Health(localEnemy.Character) > 0 && closestEnt) {
-        Vector3 localHead = getBonePosition(localEnemy.Character, HEAD);
-        if (getIsCrouched(localEnemy.Character)) {
-            localHead -= Vector3(0, 0.5, 0);
-        }
-
-        Vector3 targetBone = getBonePosition(closestEnt, HEAD);
-        Vector3 deltavec = targetBone - localHead;
-        float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
-        newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
-        newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
-
-        // Apply recoil compensation
-        Vector2 recoilOffset = getRecoilOffset();
-        newAngle -= recoilOffset;
-
-        difference = (newAngle - rotation); // Instant aim adjustment
-        oSetRotation(character, rotation + difference);
-    }
-}
-
-// Function to get the current recoil offset
-Vector2 getRecoilOffset() {
-    // Implement logic to get the current recoil offset based on the weapon and shooting state
-    // Placeholder values for recoil offset
-    return Vector2(0.5, 0.5); 
 }
 
 // Function to get the valid enemy target
@@ -299,12 +261,6 @@ void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
     return closestCharacter;
 }
 
-// Function to stop player movement
-void stopPlayerMovement() {
-    // Implement the logic to stop player movement here
-    // This is a placeholder function and needs to be implemented according to the game's movement control logic
-}
-
 // Function to set the rotation for aiming
 void setRotation(void *character, Vector2 rotation) {
     std::lock_guard<std::mutex> guard(aimbot_mtx);
@@ -338,6 +294,19 @@ void setRotation(void *character, Vector2 rotation) {
         difference = (newAngle - rotation); // Instant aim adjustment
         oSetRotation(character, rotation + difference);
     }
+}
+
+// Function to get the current recoil offset
+Vector2 getRecoilOffset() {
+    // Implement logic to get the current recoil offset based on the weapon and shooting state
+    // Placeholder values for recoil offset
+    return Vector2(0.5, 0.5); 
+}
+
+// Function to stop player movement
+void stopPlayerMovement() {
+    // Implement the logic to stop player movement here
+    // This is a placeholder function and needs to be implemented according to the game's movement control logic
 }
 
 // Function to check if movement should be stopped for accuracy
@@ -438,22 +407,4 @@ void ESP() {
                 DrawBones(currentCharacter, LOWERLEG_RIGHT, UPPERLEG_RIGHT, espcfg, background);
                 DrawBones(currentCharacter, UPPERLEG_LEFT, STOMACH, espcfg, background);
                 DrawBones(currentCharacter, UPPERLEG_RIGHT, STOMACH, espcfg, background);
-                DrawBones(currentCharacter, STOMACH, CHEST, espcfg, background);
-                DrawBones(currentCharacter, LOWERARM_LEFT, UPPERARM_LEFT, espcfg, background);
-                DrawBones(currentCharacter, LOWERARM_RIGHT, UPPERARM_RIGHT, espcfg, background);
-                DrawBones(currentCharacter, UPPERARM_LEFT, CHEST, espcfg, background);
-                DrawBones(currentCharacter, UPPERARM_RIGHT, CHEST, espcfg, background);
-                Vector3 diff = wschestPos - wsheadPos;
-                Vector3 neck = (chestPos + headPos) / 2;
-                DrawBones(currentCharacter, CHEST, neck, espcfg, background);
-                DrawBones(currentCharacter, neck, headPos, espcfg, background);
-            }
-        }
-    }
-}
-
-// Radar hack function to show enemy positions on the in-game map
-void RadarHack() {
-    std::lock_guard<std::mutex> guard(esp_mtx);
-    auto background = ImGui::Get
-}
+                DrawBones(currentCharacter, STOMACH, CHEST, espcfg, background
