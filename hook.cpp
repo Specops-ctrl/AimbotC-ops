@@ -45,7 +45,6 @@ void *getTransform(void *character) {
 // Initialization function for touch controls
 extern "C" JNIEXPORT void JNICALL
 Java_com_criticalforceentertainment_criticalops_CriticalOpsMainActivity_initTouchControls(JNIEnv* env, jobject obj) {
-    // Initialize TouchControls here
     TouchControls = new YourTouchControlClass(); // Example initialization
     std::thread(checkForCriticalOps, env).detach(); // Start the thread to check for Critical Ops
 }
@@ -92,7 +91,6 @@ void enableAimbot() {
     configureWeapon(arCfg, currWeapon);
     configureWeapon(shotgunCfg, currWeapon);
     configureWeapon(sniperCfg, currWeapon);
-    // Additional configuration as needed
 }
 
 // Function to disable aimbot
@@ -102,7 +100,6 @@ void disableAimbot() {
     arCfg.aimbot = false;
     shotgunCfg.aimbot = false;
     sniperCfg.aimbot = false;
-    // Additional configuration as needed
 }
 
 // Actual implementation to check if a game is running
@@ -196,7 +193,6 @@ Vector3 predictEnemyPosition(void *character, float time) {
     return futurePos;
 }
 
-// Function to configure weapon settings
 // Function to configure weapon settings
 void configureWeapon(AimbotCfg &cfg, int currWeapon) {
     switch (currWeapon) {
@@ -328,119 +324,4 @@ void setRotation(void *character, Vector2 rotation) {
         newAngle -= recoilOffset;
 
         difference = (newAngle - rotation); // Instant aim adjustment
-        oSetRotation(character, rotation + difference);
-    }
-}
-
-// Function to get the current recoil offset
-Vector2 getRecoilOffset() {
-    // Implement logic to get the current recoil offset based on the weapon and shooting state
-    // Placeholder values for recoil offset
-    return Vector2(0.5, 0.5); 
-}
-
-// Function to stop player movement
-void stopPlayerMovement() {
-    // Implement the logic to stop player movement here
-    // This is a placeholder function and needs to be implemented according to the game's movement control logic
-}
-
-// Function to check if movement should be stopped for accuracy
-bool shouldStopForAccuracy(AimbotCfg cfg, Vector2 newAngle, Vector2 rotation) {
-    Vector2 difference = newAngle - rotation;
-    return (fabs(difference.X) > cfg.accuracyThreshold || fabs(difference.Y) > cfg.accuracyThreshold);
-}
-
-// ESP function to draw information on the screen
-void ESP() {
-    AimbotCfg cfg;
-
-    std::lock_guard<std::mutex> guard(esp_mtx);
-    auto background = ImGui::GetBackgroundDrawList();
-    if (pSys == nullptr || !(esp || pistolCfg.aimbot || shotgunCfg.aimbot || smgCfg.aimbot || arCfg.aimbot || sniperCfg.aimbot)) {
-        return;
-    }
-
-    int id = getLocalId(pSys);
-    if (id == 0) {
-        return;
-    }
-
-    if (pSys == nullptr) {
-        return;
-    }
-
-    void *localPlayer = getPlayer(pSys, id);
-    if (localPlayer == nullptr) {
-        return;
-    }
-
-    auto cam = get_camera();
-    if (cam == nullptr) {
-        return;
-    }
-
-    for (int i = 0; i < EnemyList.size(); i++) {
-        Enemy currentEnemy = EnemyList[i];
-        void *currentCharacter = currentEnemy.Character;
-        if (currentCharacter == nullptr) {
-            continue;
-        }
-        void *currentPlayer = currentEnemy.Player;
-        if (currentPlayer == nullptr) {
-            continue;
-        }
-
-        if(localPlayer == currentEnemy.Player){
-            localEnemy = currentEnemy;
-        }
-        int health = get_Health(currentEnemy.Character);
-        int localTeam = localEnemy.team;
-        int curTeam = currentEnemy.team;
-
-        if (health <= 0 || localTeam == curTeam || curTeam == -1) {
-            continue;
-        }
-
-        void *transform = getTransform(currentCharacter);
-        void *localTransform = getTransform(localEnemy.Character);
-        if (transform == nullptr || localTransform == nullptr) {
-            continue;
-        }
-
-        Vector3 position = get_Position(transform);
-        Vector3 transformPos = WorldToScreen(cam, position, 2.4);
-        transformPos.Y = glHeight - transformPos.Y;
-        Vector3 headPos = getBonePosition(currentCharacter, HEAD);
-        Vector3 chestPos = getBonePosition(currentCharacter, CHEST);
-        Vector3 wschestPos = WorldToScreen(cam, chestPos, 4);
-        Vector3 wsheadPos = WorldToScreen(cam, headPos, 4);
-        Vector3 aboveHead = headPos + Vector3(0, 0.4, 0);
-        Vector3 headEstimate = position + Vector3(0, 1.48, 0);
-
-        Vector3 wsAboveHead = WorldToScreen(cam, aboveHead, 4);
-        Vector3 wsheadEstimate = WorldToScreen(cam, headEstimate, 4);
-
-        wsAboveHead.Y = glHeight - wsAboveHead.Y;
-        wsheadEstimate.Y = glHeight - wsheadEstimate.Y;
-
-        float height = transformPos.Y - wsAboveHead.Y;
-        float width = (transformPos.Y - wsheadEstimate.Y) / 2;
-
-        Vector3 localPosition = get_Position(localTransform);
-        Vector3 currentCharacterPosition = get_Position(transform);
-        float currentEntDist = Vector3::Distance(localPosition, currentCharacterPosition);
-
-        espcfg = invisibleCfg;
-
-        if (esp) {
-            if (espcfg.snapline && transformPos.Z > 0) {
-                DrawLine(ImVec2(glWidth / 2, glHeight), ImVec2(transformPos.X, transformPos.Y), ImColor(255, 0, 0, (255 - currentEntDist * 2))); // Red color
-            }
-
-            if (espcfg.bone && transformPos.Z > 0 && currentCharacter != nullptr) {
-                DrawBones(currentCharacter, LOWERLEG_LEFT, UPPERLEG_LEFT, espcfg, background);
-                DrawBones(currentCharacter, LOWERLEG_RIGHT, UPPERLEG_RIGHT, espcfg, background);
-                DrawBones(currentCharacter, UPPERLEG_LEFT, STOMACH, espcfg, background);
-                DrawBones(currentCharacter, UPPERLEG_RIGHT, STOMACH, espcfg, background);
-                DrawBones(currentCharacter, STOMACH, CHEST, espcfg, background
+        oSetRotation(character, rotation +
