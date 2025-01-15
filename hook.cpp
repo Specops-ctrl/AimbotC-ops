@@ -277,7 +277,7 @@ void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
             Vector3 deltavec = enemyBone - localHead;
             float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
             newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
-            newAngle.Y = atan2(deltavec.X, deltavec.Z) * (180.0 / PI);
+            newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
             if (isInFov2(rotation, newAngle, cfg) && localTeam != curTeam && curTeam != -1) {
                 if (cfg.visCheck && isCharacterVisible(currentEnemy.Character, pSys)) {
                     canSet = true;
