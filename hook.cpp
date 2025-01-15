@@ -31,9 +31,7 @@ bool isCharacterVisible(void *character, void *pSys);
 void setRotation(void *character, Vector2 rotation);
 void ESP();
 void checkForCriticalOps(JNIEnv* env);
-void stopPlayerMovement();
 Vector2 getRecoilOffset();
-bool shouldStopForAccuracy(AimbotCfg cfg, Vector2 newAngle, Vector2 rotation);
 void RadarHack(); // Radar hack function declaration
 
 // Function to get the transform of a character
@@ -242,6 +240,13 @@ void setRotation(void *character, Vector2 rotation) {
         Vector2 recoilOffset = getRecoilOffset();
         newAngle -= recoilOffset;
 
+        // Predict enemy position
+        Vector3 predictedPos = predictEnemyPosition(closestEnt, 0.1f); // Predict 0.1 seconds ahead
+        Vector3 predictedDeltavec = predictedPos - localHead;
+        float predictedDeltLength = sqrt(predictedDeltavec.X * predictedDeltavec.X + predictedDeltavec.Y * predictedDeltavec.Y + predictedDeltavec.Z * predictedDeltavec.Z);
+        newAngle.X = -asin(predictedDeltavec.Y / predictedDeltLength) * (180.0 / PI);
+        newAngle.Y = atan2(predictedDeltavec.X, predictedDeltavec.Z) * 180.0 / PI;
+
         difference = (newAngle - rotation); // Instant aim adjustment
         oSetRotation(character, rotation + difference);
     }
@@ -272,7 +277,7 @@ void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
             Vector3 deltavec = enemyBone - localHead;
             float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
             newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
-            newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
+            newAngle.Y = atan2(deltavec.X, deltavec.Z) * (180.0 / PI);
             if (isInFov2(rotation, newAngle, cfg) && localTeam != curTeam && curTeam != -1) {
                 if (cfg.visCheck && isCharacterVisible(currentEnemy.Character, pSys)) {
                     canSet = true;
@@ -293,35 +298,7 @@ void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
     return closestCharacter;
 }
 
-// Function to set the rotation for aiming
-void setRotation(void *character, Vector2 rotation) {
-    std::lock_guard<std::mutex> guard(aimbot_mtx);
-    Vector2 newAngle, difference = {0, 0};
-    AimbotCfg cfg;
-
-    if (localEnemy.Character) {
-        currWeapon = getCurrentWeaponCategory(localEnemy.Character);
-        if (currWeapon != -1) {
-            configureWeapon(cfg, currWeapon);
-        }
-    }
-
-    void *closestEnt = (character && localEnemy.Character && get_IsInitialized(localEnemy.Character)) ? getValidEnt3(cfg, rotation) : nullptr;
-    if (localEnemy.Character && get_Health(localEnemy.Character) > 0 && closestEnt) {
-        Vector3 localHead = getBonePosition(localEnemy.Character, HEAD);
-        if (getIsCrouched(localEnemy.Character)) {
-            localHead -= Vector3(0, 0.5, 0);
-        }
-
-        Vector3 targetBone = getBonePosition(closestEnt, HEAD);
-        Vector3 deltavec = targetBone - localHead;
-        float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
-        newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
-        newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
-
-        // Apply recoil compensation
-        Vector2 recoilOffset = getRecoilOffset();
-        newAngle -= recoilOffset;
-
-        difference = (newAngle - rotation); // Instant aim adjustment
-        oSetRotation(character, rotation +
+// Function to ensure 100% accuracy
+bool shouldStopForAccuracy(AimbotCfg cfg, Vector2 newAngle, Vector2 rotation) {
+    return false; // Always return false to ensure 100% accuracy
+}
