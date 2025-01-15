@@ -22,6 +22,7 @@ Enemy localEnemy;
 std::vector<Enemy> EnemyList;
 int glWidth, glHeight;
 bool isCriticalOpsRunning = false;
+bool isRankedDefuse = false; // New variable to track if the game mode is Ranked Defuse
 
 // Function declarations
 void configureWeapon(AimbotCfg &cfg, int currWeapon);
@@ -33,6 +34,7 @@ void ESP();
 void checkForCriticalOps(JNIEnv* env);
 Vector2 getRecoilOffset();
 void RadarHack(); // Radar hack function declaration
+void updateAimbot(); // New function declaration for updating aimbot
 
 // Function to get the transform of a character
 void *getTransform(void *character) {
@@ -98,6 +100,21 @@ void disableAimbot() {
     arCfg.aimbot = false;
     shotgunCfg.aimbot = false;
     sniperCfg.aimbot = false;
+}
+
+// Function to update and start aimbot every round and new game
+void updateAimbot() {
+    while (true) {
+        if (isCriticalOpsRunning) {
+            enableAimbot(); // Enable aimbot every round and new game
+            if (isRankedDefuse) {
+                // Specific logic for Ranked Defuse mode if needed
+            }
+        } else {
+            disableAimbot(); // Disable aimbot if the game is not running
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(5)); // Check every 5 seconds
+    }
 }
 
 // Actual implementation to check if a game is running
@@ -186,8 +203,7 @@ bool isInFov2(Vector2 rotation, Vector2 newAngle, AimbotCfg cfg) {
 Vector3 predictEnemyPosition(void *character, float time) {
     Vector3 currentPos = get_Position(getTransform(character));
     Vector3 velocity = get_CharacterVelocity(character);
-    Vector3 acceleration = get_CharacterAcceleration(character); // Assume this function exists
-    Vector3 futurePos = currentPos + velocity * time + 0.5f * acceleration * time * time;
+    Vector3 futurePos = currentPos + velocity * time;
     return futurePos;
 }
 
@@ -212,7 +228,6 @@ void configureWeapon(AimbotCfg &cfg, int currWeapon) {
 
 // Function to set the rotation for aiming
 void setRotation(void *character, Vector2 rotation) {
-    std::lock_guard<std::mutex> guard(aimbot_mtx);
     Vector2 newAngle, difference = {0, 0};
     AimbotCfg cfg;
 
@@ -226,22 +241,14 @@ void setRotation(void *character, Vector2 rotation) {
     void *closestEnt = (character && localEnemy.Character && get_IsInitialized(localEnemy.Character)) ? getValidEnt3(cfg, rotation) : nullptr;
     if (localEnemy.Character && get_Health(localEnemy.Character) > 0 && closestEnt) {
         Vector3 localHead = getBonePosition(localEnemy.Character, HEAD);
-        if (getIsCrouched(localEnemy.Character)) {
-            localHead -= Vector3(0, 0.5, 0);
-        }
-
         Vector3 targetBone = getBonePosition(closestEnt, HEAD);
         Vector3 deltavec = targetBone - localHead;
         float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
         newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
         newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
 
-        // Apply recoil compensation
-        Vector2 recoilOffset = getRecoilOffset();
-        newAngle -= recoilOffset;
-
         // Predict enemy position
-        Vector3 predictedPos = predictEnemyPosition(closestEnt, 0.1f); // Predict 0.1 seconds ahead
+        Vector3 predictedPos = predictEnemyPosition(closestEnt, 0.05f); // Predict 0.05 seconds ahead
         Vector3 predictedDeltavec = predictedPos - localHead;
         float predictedDeltLength = sqrt(predictedDeltavec.X * predictedDeltavec.X + predictedDeltavec.Y * predictedDeltavec.Y + predictedDeltavec.Z * predictedDeltavec.Z);
         newAngle.X = -asin(predictedDeltavec.Y / predictedDeltLength) * (180.0 / PI);
@@ -263,36 +270,17 @@ void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
     void *closestCharacter = nullptr;
     Vector3 localHead = getBonePosition(localEnemy.Character, HEAD);
 
-    if (getIsCrouched(localEnemy.Character)) {
-        localHead = localHead - Vector3(0, 0.5, 0);
-    }
-
     for (const auto& currentEnemy : EnemyList) {
         int curTeam = currentEnemy.team;
-        int health = get_Health(currentEnemy.Character);
-        bool canSet = false;
-        Vector2 newAngle;
-        if (cfg.aimbot && localEnemy.Character && get_Health(localEnemy.Character) > 0 && health > 0) {
-            Vector3 enemyBone = getBonePosition(currentEnemy.Character, HEAD);
-            Vector3 deltavec = enemyBone - localHead;
-            float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
-            newAngle.X = -asin(deltavec.Y / deltLength) * (180.0 / PI);
-            newAngle.Y = atan2(deltavec.X, deltavec.Z) * 180.0 / PI;
-            if (isInFov2(rotation, newAngle, cfg) && localTeam != curTeam && curTeam != -1) {
-                if (cfg.visCheck && isCharacterVisible(currentEnemy.Character, pSys)) {
-                    canSet = true;
-                }
-                void *transform = getTransform(localEnemy.Character);
-                if (transform) {
-                    Vector3 localPosition = get_Position(transform);
-                    Vector3 currentCharacterPosition = get_Position(getTransform(currentEnemy.Character));
-                    Vector3 currentEntDist = Vector3::Distance(localPosition, currentCharacterPosition);
-                    if (Vector3::Magnitude(currentEntDist) < closestEntDist && (!cfg.visCheck || canSet)) {
-                        closestEntDist = Vector3::Magnitude(currentEntDist);
-                        closestCharacter = currentEnemy.Character;
-                    }
-                }
-            }
+        if (curTeam == localTeam || curTeam == -1) continue; // Skip if same team or invalid team
+
+        Vector3 enemyBone = getBonePosition(currentEnemy.Character, HEAD);
+        Vector3 deltavec = enemyBone - localHead;
+        float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
+
+        if (deltLength < closestEntDist && get_Health(currentEnemy.Character) > 0) {
+            closestEntDist = deltLength;
+            closestCharacter = currentEnemy.Character;
         }
     }
     return closestCharacter;
