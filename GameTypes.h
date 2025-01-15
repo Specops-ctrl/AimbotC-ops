@@ -1,11 +1,9 @@
-struct Ray
-{
+struct Ray {
     Vector3 origin;
     Vector3 direction;
 };
 
-enum BodyPart
-{
+enum BodyPart {
     LOWERLEG_LEFT,
     LOWERLEG_RIGHT,
     UPPERLEG_LEFT,
@@ -19,14 +17,12 @@ enum BodyPart
     HEAD
 };
 
-struct PlayerAdapter
-{
+struct PlayerAdapter {
     int pad_0[3];
     void* Player; // 0x10
 };
 
-enum WeaponCategory
-{
+enum WeaponCategory {
     Pistol,
     AssaultRifles,
     SubmachineGun,
@@ -37,8 +33,7 @@ enum WeaponCategory
     Utility
 };
 
-struct HitData
-{
+struct HitData {
     bool hitCharacter;
     bool traced;
     Vector3 hitWorldPos;
@@ -50,14 +45,12 @@ struct HitData
     int hitMaterialDef;
 };
 
-struct Character
-{
+struct Character {
     void* character;
     int id;
 };
 
-enum ChatMessageType
-{
+enum ChatMessageType {
     PUBLIC_CHAT,
     TEAM_CHAT,
     RADIO,
@@ -69,8 +62,7 @@ enum ChatMessageType
     CLAN
 };
 
-struct Enemy
-{
+struct Enemy {
     void* Character = nullptr;
     void* Player = nullptr;
     std::string Name = "";
@@ -80,16 +72,13 @@ struct Enemy
 };
 std::vector<Enemy> EnemyList;
 
-struct TransformData
-{
-    // Pads may be wrong :(
+struct TransformData {
     Vector3 pos;
     int pad_0[2];
     Vector3 velocity;
     int pad_1[3];
     Vector2 rotation;
 };
-
 
 struct ESPCfg {
     bool snapline = true;
@@ -106,8 +95,8 @@ struct ESPCfg {
     bool weapon = true;
     ImVec4 weaponColor = ImColor(255,255,255);
 };
-struct BurstData
-{
+
+struct BurstData {
     Ray currentRay;
     void* weaponEgid;
     int damagePercent;
@@ -122,21 +111,19 @@ struct AimbotCfg {
     bool aimbotSmooth = false; // Disable smoothing for instant aiming
     float smoothAmount = 0.0f;
     bool fovCheck = false; // Ignore FOV checks
-    float fovValue = 45.0f; // 
+    float fovValue = 45.0f;
     bool drawFov = true;
     bool onShoot = true;
     bool triggerbot = true;
 };
 
-struct CustomWeapon
-{
+struct CustomWeapon {
     void* EGID = 0;
     int liveId = -1;
     int weaponDefId = -1;
 };
 
-struct Color
-{
+struct Color {
     float r;
     float g;
     float b;
