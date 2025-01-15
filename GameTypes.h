@@ -111,7 +111,7 @@ struct AimbotCfg {
     bool aimbotSmooth = false; // Disable smoothing for instant aiming
     float smoothAmount = 0.0f;
     bool fovCheck = false; // Ignore FOV checks
-    float fovValue = 45.0f;
+    float fovValue = 360.0f; // Large FOV to cover entire screen
     bool drawFov = true;
     bool onShoot = true;
     bool triggerbot = true;
