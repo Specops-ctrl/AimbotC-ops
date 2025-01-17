@@ -80,7 +80,7 @@ void checkForCriticalOps(JNIEnv* env) {
         } else {
             disableAimbot(); // Stop Aimbot when the game is not running
         }
-        std::this_thread::sleep_for(std::chrono::seconds(5)); // Check every 5 seconds
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every 1 second
     }
 }
 
@@ -113,7 +113,7 @@ void updateAimbot() {
         } else {
             disableAimbot(); // Disable aimbot if the game is not running
         }
-        std::this_thread::sleep_for(std::chrono::seconds(5)); // Check every 5 seconds
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // Check every 1 second
     }
 }
 
@@ -203,7 +203,8 @@ bool isInFov2(Vector2 rotation, Vector2 newAngle, AimbotCfg cfg) {
 Vector3 predictEnemyPosition(void *character, float time) {
     Vector3 currentPos = get_Position(getTransform(character));
     Vector3 velocity = get_CharacterVelocity(character);
-    Vector3 futurePos = currentPos + velocity * time;
+    Vector3 acceleration = get_CharacterAcceleration(character); // New: get acceleration
+    Vector3 futurePos = currentPos + velocity * time + 0.5 * acceleration * time * time; // New: incorporate acceleration
     return futurePos;
 }
 
@@ -278,7 +279,7 @@ void *getValidEnt3(AimbotCfg cfg, Vector2 rotation) {
         Vector3 deltavec = enemyBone - localHead;
         float deltLength = sqrt(deltavec.X * deltavec.X + deltavec.Y * deltavec.Y + deltavec.Z * deltavec.Z);
 
-        if (deltLength < closestEntDist && get_Health(currentEnemy.Character) > 0) {
+        if (deltLength < closestEntDist && get_Health(currentEnemy.Character) > 0 && isCharacterVisible(currentEnemy.Character, pSys)) { // New: check visibility
             closestEntDist = deltLength;
             closestCharacter = currentEnemy.Character;
         }
